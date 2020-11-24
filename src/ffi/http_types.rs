@@ -22,6 +22,9 @@ pub struct hyper_headers {
 #[derive(Debug, Default)]
 pub(crate) struct HeaderCaseMap(HeaderMap<Bytes>);
 
+#[derive(Debug)]
+pub(crate) struct ReasonPhrase(pub(crate) Bytes);
+
 // ===== impl hyper_request =====
 
 ffi_fn! {
@@ -206,8 +209,15 @@ impl hyper_response {
     }
 
     fn reason_phrase(&self) -> &[u8] {
-        // TODO: check extensions for ReasonPhrase
-        self.0.status().canonical_reason().unwrap_or("").as_bytes()
+        if let Some(reason) = self.0.extensions().get::<ReasonPhrase>() {
+            return &reason.0;
+        }
+
+        if let Some(reason) = self.0.status().canonical_reason() {
+            return reason.as_bytes();
+        }
+
+        &[]
     }
 }
 
