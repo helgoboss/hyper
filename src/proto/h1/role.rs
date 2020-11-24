@@ -1146,9 +1146,14 @@ fn write_headers_original_case(
         } else {
             extend(dst, name.as_str().as_bytes());
         }
-        extend(dst, b": ");
-        extend(dst, value.as_bytes());
-        extend(dst, b"\r\n");
+        // Wanted for curl test cases that send `X-Custom-Header:\r\n`
+        if value.is_empty() {
+            extend(dst, b":\r\n");
+        } else {
+            extend(dst, b": ");
+            extend(dst, value.as_bytes());
+            extend(dst, b"\r\n");
+        }
     }
 }
 
