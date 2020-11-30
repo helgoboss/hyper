@@ -39,6 +39,13 @@ typedef enum {
    A function argument was invalid.
    */
   HYPERE_INVALID_ARG,
+  /*
+   The IO transport returned an EOF when one wasn't expected.
+
+   This typically means an HTTP request or response was expected, but the
+   connection closed cleanly without sending (all of) it.
+   */
+  HYPERE_UNEXPECTED_EOF,
 } hyper_code;
 
 typedef enum {

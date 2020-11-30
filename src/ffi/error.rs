@@ -10,14 +10,25 @@ pub enum hyper_code {
     HYPERE_ERROR,
     /// A function argument was invalid.
     HYPERE_INVALID_ARG,
+    /// The IO transport returned an EOF when one wasn't expected.
+    ///
+    /// This typically means an HTTP request or response was expected, but the
+    /// connection closed cleanly without sending (all of) it.
+    HYPERE_UNEXPECTED_EOF,
 }
 
 // ===== impl hyper_error =====
 
 impl hyper_error {
     fn code(&self) -> hyper_code {
-        // TODO: add more variants
-        hyper_code::HYPERE_ERROR
+        use crate::error::Kind as ErrorKind;
+
+        match self.0.kind() {
+            ErrorKind::IncompleteMessage => hyper_code::HYPERE_UNEXPECTED_EOF,
+            // TODO: add more variants
+            _ => hyper_code::HYPERE_ERROR
+        }
+
     }
 
     fn print_to(&self, dst: &mut [u8]) -> usize {
