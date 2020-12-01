@@ -337,6 +337,10 @@ impl HeaderCaseMap {
         self.0.get(name)
     }
 
+    pub(crate) fn get_all(&self, name: &HeaderName) -> http::header::GetAll<'_, Bytes> {
+        self.0.get_all(name)
+    }
+
     pub(crate) fn insert(&mut self, name: HeaderName, orig: Bytes) {
         self.0.insert(name, orig);
     }

@@ -26,9 +26,8 @@ impl hyper_error {
         match self.0.kind() {
             ErrorKind::IncompleteMessage => hyper_code::HYPERE_UNEXPECTED_EOF,
             // TODO: add more variants
-            _ => hyper_code::HYPERE_ERROR
+            _ => hyper_code::HYPERE_ERROR,
         }
-
     }
 
     fn print_to(&self, dst: &mut [u8]) -> usize {

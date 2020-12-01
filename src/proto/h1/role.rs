@@ -1140,6 +1140,33 @@ fn write_headers_original_case(
     orig_case: &crate::ffi::HeaderCaseMap,
     dst: &mut Vec<u8>,
 ) {
+    // For each header name/value pair, there may be a value in the casemap
+    // that corresponds to the HeaderValue. So, we iterator all the keys,
+    // and for each one, try to pair the originally cased name with the value.
+    //
+    // TODO: consider adding http::HeaderMap::entries() iterator
+    for name in headers.keys() {
+        let mut names = orig_case.get_all(name).iter();
+
+        for value in headers.get_all(name) {
+            if let Some(orig_name) = names.next() {
+                extend(dst, orig_name);
+            } else {
+                extend(dst, name.as_str().as_bytes());
+            }
+
+            // Wanted for curl test cases that send `X-Custom-Header:\r\n`
+            if value.is_empty() {
+                extend(dst, b":\r\n");
+            } else {
+                extend(dst, b": ");
+                extend(dst, value.as_bytes());
+                extend(dst, b"\r\n");
+            }
+        }
+    }
+
+    /*
     for (name, value) in headers {
         if let Some(orig_name) = orig_case.get(name) {
             extend(dst, orig_name);
@@ -1155,6 +1182,7 @@ fn write_headers_original_case(
             extend(dst, b"\r\n");
         }
     }
+    */
 }
 
 struct FastWrite<'a>(&'a mut Vec<u8>);
@@ -1193,6 +1221,8 @@ mod tests {
             ParseContext {
                 cached_headers: &mut None,
                 req_method: &mut method,
+                #[cfg(feature = "ffi")]
+                preserve_header_case: false,
             },
         )
         .unwrap()
@@ -1213,6 +1243,8 @@ mod tests {
         let ctx = ParseContext {
             cached_headers: &mut None,
             req_method: &mut Some(crate::Method::GET),
+            #[cfg(feature = "ffi")]
+            preserve_header_case: false,
         };
         let msg = Client::parse(&mut raw, ctx).unwrap().unwrap();
         assert_eq!(raw.len(), 0);
@@ -1228,6 +1260,8 @@ mod tests {
         let ctx = ParseContext {
             cached_headers: &mut None,
             req_method: &mut None,
+            #[cfg(feature = "ffi")]
+            preserve_header_case: false,
         };
         Server::parse(&mut raw, ctx).unwrap_err();
     }
@@ -1241,6 +1275,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut None,
                     req_method: &mut None,
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 },
             )
             .expect("parse ok")
@@ -1254,6 +1290,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut None,
                     req_method: &mut None,
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 },
             )
             .expect_err(comment)
@@ -1456,6 +1494,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut None,
                     req_method: &mut Some(Method::GET),
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 }
             )
             .expect("parse ok")
@@ -1469,6 +1509,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut None,
                     req_method: &mut Some(m),
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 },
             )
             .expect("parse ok")
@@ -1482,6 +1524,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut None,
                     req_method: &mut Some(Method::GET),
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 },
             )
             .expect_err("parse should err")
@@ -1795,12 +1839,50 @@ mod tests {
             ParseContext {
                 cached_headers: &mut None,
                 req_method: &mut Some(Method::GET),
+                #[cfg(feature = "ffi")]
+                preserve_header_case: false,
             },
         )
         .expect("parse ok")
         .expect("parse complete");
 
         assert_eq!(parsed.head.headers["server"], "hello\tworld");
+    }
+
+    #[cfg(feature = "ffi")]
+    #[test]
+    fn test_write_headers_orig_case_empty_value() {
+        let mut headers = HeaderMap::new();
+        let name = http::header::HeaderName::from_static("x-empty");
+        headers.insert(&name, "".parse().expect("parse empty"));
+        let mut orig_cases = crate::ffi::HeaderCaseMap::default();
+        orig_cases.insert(name, Bytes::from_static(b"X-EmptY"));
+
+        let mut dst = Vec::new();
+        super::write_headers_original_case(&headers, &orig_cases, &mut dst);
+
+        assert_eq!(
+            dst, b"X-EmptY:\r\n",
+            "there should be no space between the colon and CRLF"
+        );
+    }
+
+    #[cfg(feature = "ffi")]
+    #[test]
+    fn test_write_headers_orig_case_multiple_entries() {
+        let mut headers = HeaderMap::new();
+        let name = http::header::HeaderName::from_static("x-empty");
+        headers.insert(&name, "a".parse().unwrap());
+        headers.append(&name, "b".parse().unwrap());
+
+        let mut orig_cases = crate::ffi::HeaderCaseMap::default();
+        orig_cases.insert(name.clone(), Bytes::from_static(b"X-Empty"));
+        orig_cases.append(name, Bytes::from_static(b"X-EMPTY"));
+
+        let mut dst = Vec::new();
+        super::write_headers_original_case(&headers, &orig_cases, &mut dst);
+
+        assert_eq!(dst, b"X-Empty: a\r\nX-EMPTY: b\r\n");
     }
 
     #[cfg(feature = "nightly")]
@@ -1838,6 +1920,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut headers,
                     req_method: &mut None,
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 },
             )
             .unwrap()
@@ -1871,6 +1955,8 @@ mod tests {
                 ParseContext {
                     cached_headers: &mut headers,
                     req_method: &mut None,
+                    #[cfg(feature = "ffi")]
+                    preserve_header_case: false,
                 },
             )
             .unwrap()

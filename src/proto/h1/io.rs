@@ -668,6 +668,8 @@ mod tests {
             let parse_ctx = ParseContext {
                 cached_headers: &mut None,
                 req_method: &mut None,
+                #[cfg(feature = "ffi")]
+                preserve_header_case: false,
             };
             assert!(buffered
                 .parse::<ClientTransaction>(cx, parse_ctx)
