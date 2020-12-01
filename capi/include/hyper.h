@@ -302,6 +302,16 @@ hyper_code hyper_request_set_method(hyper_request *req, const uint8_t *method, s
 hyper_code hyper_request_set_uri(hyper_request *req, const uint8_t *uri, size_t uri_len);
 
 /*
+ Set the preferred HTTP version of the request.
+
+ The version value should be one of the `HYPER_HTTP_VERSION_` constants.
+
+ Note that this won't change the major HTTP version of the connection,
+ since that is determined at the handshake step.
+ */
+hyper_code hyper_request_set_version(hyper_request *req, int version);
+
+/*
  Gets a reference to the HTTP headers of this request
 
  This is not an owned reference, so it should not be accessed after the

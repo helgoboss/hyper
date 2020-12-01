@@ -78,6 +78,30 @@ ffi_fn! {
 }
 
 ffi_fn! {
+    /// Set the preferred HTTP version of the request.
+    ///
+    /// The version value should be one of the `HYPER_HTTP_VERSION_` constants.
+    ///
+    /// Note that this won't change the major HTTP version of the connection,
+    /// since that is determined at the handshake step.
+    fn hyper_request_set_version(req: *mut hyper_request, version: c_int) -> hyper_code {
+        use http::Version;
+
+        *unsafe { &mut *req }.0.version_mut() = match version {
+            super::HYPER_HTTP_VERSION_NONE => Version::HTTP_11,
+            super::HYPER_HTTP_VERSION_1_0 => Version::HTTP_10,
+            super::HYPER_HTTP_VERSION_1_1 => Version::HTTP_11,
+            super::HYPER_HTTP_VERSION_2 => Version::HTTP_2,
+            _ => {
+                // We don't know this version
+                return hyper_code::HYPERE_INVALID_ARG;
+            }
+        };
+        hyper_code::HYPERE_OK
+    }
+}
+
+ffi_fn! {
     /// Gets a reference to the HTTP headers of this request
     ///
     /// This is not an owned reference, so it should not be accessed after the
