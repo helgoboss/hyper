@@ -1165,24 +1165,6 @@ fn write_headers_original_case(
             }
         }
     }
-
-    /*
-    for (name, value) in headers {
-        if let Some(orig_name) = orig_case.get(name) {
-            extend(dst, orig_name);
-        } else {
-            extend(dst, name.as_str().as_bytes());
-        }
-        // Wanted for curl test cases that send `X-Custom-Header:\r\n`
-        if value.is_empty() {
-            extend(dst, b":\r\n");
-        } else {
-            extend(dst, b": ");
-            extend(dst, value.as_bytes());
-            extend(dst, b"\r\n");
-        }
-    }
-    */
 }
 
 struct FastWrite<'a>(&'a mut Vec<u8>);

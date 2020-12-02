@@ -13,6 +13,7 @@ pub struct hyper_request(pub(super) Request<Body>);
 
 pub struct hyper_response(pub(super) Response<Body>);
 
+#[derive(Default)]
 pub struct hyper_headers {
     pub(super) headers: HeaderMap,
     orig_casing: HeaderCaseMap,
@@ -278,20 +279,30 @@ ffi_fn! {
     /// `HYPER_ITER_BREAK` to stop.
     fn hyper_headers_foreach(headers: *const hyper_headers, func: hyper_headers_foreach_callback, userdata: *mut c_void) {
         let headers = unsafe { &*headers };
-        for (name, value) in headers.headers.iter() {
-            let (name_ptr, name_len) = if let Some(orig_name) = headers.orig_casing.get(name) {
-                (orig_name.as_ptr(), orig_name.len())
-            } else {
-                (
-                    name.as_str().as_bytes().as_ptr(),
-                    name.as_str().as_bytes().len(),
-                )
-            };
-            let val_ptr = value.as_bytes().as_ptr();
-            let val_len = value.as_bytes().len();
+        // For each header name/value pair, there may be a value in the casemap
+        // that corresponds to the HeaderValue. So, we iterator all the keys,
+        // and for each one, try to pair the originally cased name with the value.
+        //
+        // TODO: consider adding http::HeaderMap::entries() iterator
+        for name in headers.headers.keys() {
+            let mut names = headers.orig_casing.get_all(name).iter();
 
-            if HYPER_ITER_CONTINUE != func(userdata, name_ptr, name_len, val_ptr, val_len) {
-                break;
+            for value in headers.headers.get_all(name) {
+                let (name_ptr, name_len) = if let Some(orig_name) = names.next() {
+                    (orig_name.as_ptr(), orig_name.len())
+                } else {
+                    (
+                        name.as_str().as_bytes().as_ptr(),
+                        name.as_str().as_bytes().len(),
+                    )
+                };
+
+                let val_ptr = value.as_bytes().as_ptr();
+                let val_len = value.as_bytes().len();
+
+                if HYPER_ITER_CONTINUE != func(userdata, name_ptr, name_len, val_ptr, val_len) {
+                    return;
+                }
             }
         }
     }
@@ -357,10 +368,6 @@ unsafe fn raw_name_value(
 // ===== impl HeaderCaseMap =====
 
 impl HeaderCaseMap {
-    pub(crate) fn get(&self, name: &HeaderName) -> Option<&Bytes> {
-        self.0.get(name)
-    }
-
     pub(crate) fn get_all(&self, name: &HeaderName) -> http::header::GetAll<'_, Bytes> {
         self.0.get_all(name)
     }
@@ -374,5 +381,59 @@ impl HeaderCaseMap {
         N: http::header::IntoHeaderName,
     {
         self.0.append(name, orig);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_headers_foreach_cases_preserved() {
+        let mut headers = hyper_headers::default();
+
+        let name1 = b"Set-CookiE";
+        let value1 = b"a=b";
+        hyper_headers_add(
+            &mut headers,
+            name1.as_ptr(),
+            name1.len(),
+            value1.as_ptr(),
+            value1.len(),
+        );
+
+        let name2 = b"SET-COOKIE";
+        let value2 = b"c=d";
+        hyper_headers_add(
+            &mut headers,
+            name2.as_ptr(),
+            name2.len(),
+            value2.as_ptr(),
+            value2.len(),
+        );
+
+        let mut vec = Vec::<u8>::new();
+        hyper_headers_foreach(&headers, concat, &mut vec as *mut _ as *mut c_void);
+
+        assert_eq!(vec, b"Set-CookiE: a=b\r\nSET-COOKIE: c=d\r\n");
+
+        extern "C" fn concat(
+            vec: *mut c_void,
+            name: *const u8,
+            name_len: usize,
+            value: *const u8,
+            value_len: usize,
+        ) -> c_int {
+            unsafe {
+                let vec = &mut *(vec as *mut Vec<u8>);
+                let name = std::slice::from_raw_parts(name, name_len);
+                let value = std::slice::from_raw_parts(value, value_len);
+                vec.extend(name);
+                vec.extend(b": ");
+                vec.extend(value);
+                vec.extend(b"\r\n");
+            }
+            HYPER_ITER_CONTINUE
+        }
     }
 }
