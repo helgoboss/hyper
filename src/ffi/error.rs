@@ -15,6 +15,8 @@ pub enum hyper_code {
     /// This typically means an HTTP request or response was expected, but the
     /// connection closed cleanly without sending (all of) it.
     HYPERE_UNEXPECTED_EOF,
+    /// Aborted by a user supplied callback.
+    HYPERE_ABORTED_BY_CALLBACK,
 }
 
 // ===== impl hyper_error =====
@@ -22,9 +24,11 @@ pub enum hyper_code {
 impl hyper_error {
     fn code(&self) -> hyper_code {
         use crate::error::Kind as ErrorKind;
+        use crate::error::User;
 
         match self.0.kind() {
             ErrorKind::IncompleteMessage => hyper_code::HYPERE_UNEXPECTED_EOF,
+            ErrorKind::User(User::AbortedByCallback) => hyper_code::HYPERE_ABORTED_BY_CALLBACK,
             // TODO: add more variants
             _ => hyper_code::HYPERE_ERROR,
         }

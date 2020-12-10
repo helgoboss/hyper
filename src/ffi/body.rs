@@ -90,7 +90,7 @@ ffi_fn! {
             while let Some(item) = body.0.data().await {
                 let chunk = item?;
                 if HYPER_ITER_CONTINUE != func(userdata.0, &hyper_buf(chunk)) {
-                    break;
+                    return Err(crate::Error::new_user_aborted_by_callback());
                 }
             }
             Ok(())

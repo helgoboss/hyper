@@ -46,6 +46,10 @@ typedef enum {
    connection closed cleanly without sending (all of) it.
    */
   HYPERE_UNEXPECTED_EOF,
+  /*
+   Aborted by a user supplied callback.
+   */
+  HYPERE_ABORTED_BY_CALLBACK,
 } hyper_code;
 
 typedef enum {

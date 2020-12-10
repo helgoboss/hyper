@@ -332,10 +332,11 @@ int main(int argc, char *argv[]) {
 
 fail:
     if (err) {
+        printf("error code: %d\n", hyper_error_code(err));
         // grab the error details
         char errbuf [256];
         size_t errlen = hyper_error_print(err, errbuf, sizeof(errbuf));
-        printf("\tdetails: %.*s\n", (int) errlen, errbuf);
+        printf("details: %.*s\n", (int) errlen, errbuf);
 
         // clean up the error
         hyper_error_free(err);

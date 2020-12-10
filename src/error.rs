@@ -89,6 +89,10 @@ pub(crate) enum User {
 
     /// User polled for an upgrade, but low-level API is not using upgrades.
     ManualUpgrade,
+
+    /// User aborted in an FFI callback.
+    #[cfg(feature = "ffi")]
+    AbortedByCallback,
 }
 
 // Sentinel type to indicate the error was caused by a timeout.
@@ -280,6 +284,11 @@ impl Error {
         Error::new_user(User::Body).with(cause)
     }
 
+    #[cfg(feature = "ffi")]
+    pub(crate) fn new_user_aborted_by_callback() -> Error {
+        Error::new_user(User::AbortedByCallback)
+    }
+
     pub(crate) fn new_shutdown(cause: io::Error) -> Error {
         Error::new(Kind::Shutdown).with(cause)
     }
@@ -328,6 +337,8 @@ impl Error {
             Kind::User(User::AbsoluteUriRequired) => "client requires absolute-form URIs",
             Kind::User(User::NoUpgrade) => "no upgrade available",
             Kind::User(User::ManualUpgrade) => "upgrade expected but low level API in use",
+            #[cfg(feature = "ffi")]
+            Kind::User(User::AbortedByCallback) => "operation aborted by an application callback",
         }
     }
 }
