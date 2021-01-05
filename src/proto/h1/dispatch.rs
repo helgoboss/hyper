@@ -71,6 +71,10 @@ where
         }
     }
 
+    pub fn close_forcibly(&mut self) {
+        self.close();
+    }
+
     pub fn disable_keep_alive(&mut self) {
         self.conn.disable_keep_alive();
         if self.conn.is_write_closed() {
